@@ -6,7 +6,7 @@ import { useAuth } from "@/lib/contexts/auth-context";
 import { IconArrowLeft } from "@tabler/icons-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp, doc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { nanoid } from 'nanoid';
 import { DashboardLayout } from "@/components/ui/dashboard-layout";
@@ -29,34 +29,31 @@ export default function NewProjectPage() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
+    setLoading(true);
     try {
-      setLoading(true);
-      
-      // Generate a unique invite code
       const inviteCode = nanoid(10);
-      
-      // Create the project document
-      const projectRef = await addDoc(collection(db, 'projects'), {
+      const projectId = doc(collection(db, 'projects')).id; // Generate ID first
+
+      // Create project with the generated ID
+      await setDoc(doc(db, 'projects', projectId), {
         ...formData,
+        id: projectId, // Store the ID in the document
         createdBy: user.uid,
-        createdAt: serverTimestamp(),
         members: [user.uid],
+        status: "active",
         inviteCode,
-        dueDate: new Date(formData.dueDate).toISOString(),
-        status: 'active'
+        createdAt: new Date().toISOString(),
       });
 
-      // Generate invite link
-      const inviteLink = `${window.location.origin}/invite/${inviteCode}`;
-      setInviteLink(inviteLink);
+      console.log("Project created with ID:", projectId);
       
-      // Show success state
       setSuccess(true);
-      
+      setInviteLink(`${window.location.origin}/invite/${inviteCode}`);
+
       // Redirect after 5 seconds
       setTimeout(() => {
         router.push('/dashboard/projects');

@@ -4,9 +4,11 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { IconArrowLeft, IconCalendar, IconUsers, IconClipboardList } from "@tabler/icons-react";
-import { doc, getDoc, collection, query, where, getDocs } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase/firebase";
 import { DashboardLayout } from "@/components/ui/dashboard-layout";
+import { CreateTaskDialog } from "@/components/ui/create-task-dialog";
+import { TaskList } from "@/components/ui/task-list";
 
 interface Project {
   id: string;
@@ -20,10 +22,11 @@ interface Project {
   members: string[];
 }
 
-interface UserProfile {
+interface Member {
+  id: string;
   firstName: string;
   lastName: string;
-  email: string | null;
+  email: string;
 }
 
 type TabType = "overview" | "team" | "tasks";
@@ -33,15 +36,14 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [project, setProject] = useState<Project | null>(null);
-  const [members, setMembers] = useState<Record<string, UserProfile>>({});
+  const [members, setMembers] = useState<Member[]>([]);
   const [activeTab, setActiveTab] = useState<TabType>("overview");
 
   useEffect(() => {
-    async function fetchProjectData() {
+    async function fetchProjectAndMembers() {
       if (!user) return;
 
       try {
-        // Fetch project data
         const projectDoc = await getDoc(doc(db, 'projects', params.id));
         if (!projectDoc.exists()) {
           router.push('/dashboard/projects');
@@ -53,25 +55,29 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
           ...projectDoc.data()
         } as Project;
 
-        setProject(projectData);
+        const memberData = await Promise.all(
+          projectData.members.map(async (memberId) => {
+            const memberDoc = await getDoc(doc(db, 'users', memberId));
+            if (memberDoc.exists()) {
+              return {
+                id: memberId,
+                ...memberDoc.data()
+              } as Member;
+            }
+            return null;
+          })
+        );
 
-        // Fetch member profiles
-        const memberProfiles: Record<string, UserProfile> = {};
-        for (const memberId of projectData.members) {
-          const memberDoc = await getDoc(doc(db, 'users', memberId));
-          if (memberDoc.exists()) {
-            memberProfiles[memberId] = memberDoc.data() as UserProfile;
-          }
-        }
-        setMembers(memberProfiles);
+        setProject(projectData);
+        setMembers(memberData.filter((member): member is Member => member !== null));
+        setLoading(false);
       } catch (error) {
-        console.error('Error fetching project data:', error);
-      } finally {
+        console.error('Error fetching project:', error);
         setLoading(false);
       }
     }
 
-    fetchProjectData();
+    fetchProjectAndMembers();
   }, [user, params.id, router]);
 
   if (loading) {
@@ -181,7 +187,7 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
             <div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {project.members.map((memberId) => {
-                  const member = members[memberId];
+                  const member = members.find(m => m.id === memberId);
                   return (
                     <div
                       key={memberId}
@@ -208,8 +214,11 @@ export default function ProjectPage({ params }: { params: { id: string } }) {
           )}
 
           {activeTab === "tasks" && (
-            <div className="text-center text-neutral-600">
-              Task management coming soon!
+            <div className="space-y-6">
+              <div className="flex justify-end">
+                <CreateTaskDialog projectId={params.id} />
+              </div>
+              <TaskList projectId={params.id} members={members} />
             </div>
           )}
         </div>

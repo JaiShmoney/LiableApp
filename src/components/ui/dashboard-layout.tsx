@@ -12,6 +12,8 @@ import {
   IconSettings,
   IconChevronRight,
   IconLogout,
+  IconHome,
+  IconChecklist,
 } from "@tabler/icons-react";
 
 export function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -32,13 +34,18 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const navItems = [
     {
       label: "Overview",
-      icon: IconLayoutDashboard,
+      icon: IconHome,
       href: "/dashboard",
     },
     {
       label: "Projects",
       icon: IconFolder,
       href: "/dashboard/projects",
+    },
+    {
+      label: "Tasks",
+      icon: IconChecklist,
+      href: "/dashboard/tasks",
     },
     {
       label: "Teams",
