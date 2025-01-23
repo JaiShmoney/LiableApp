@@ -10,7 +10,6 @@ interface ProgressTrackerProps {
 
 interface TaskStats {
   total: number;
-  assigned: number;
   notStarted: number;
   inProgress: number;
   completed: number;
@@ -20,7 +19,6 @@ export function ProgressTracker({ projectId }: ProgressTrackerProps) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<TaskStats>({
     total: 0,
-    assigned: 0,
     notStarted: 0,
     inProgress: 0,
     completed: 0,
@@ -40,17 +38,14 @@ export function ProgressTracker({ projectId }: ProgressTrackerProps) {
         return {
           ...acc,
           total: acc.total + 1,
-          [status === "assigned" ? "assigned" : 
-            status === "not_started" ? "notStarted" : 
-            status === "in_progress" ? "inProgress" : 
-            "completed"]: acc[status === "assigned" ? "assigned" : 
-                          status === "not_started" ? "notStarted" : 
-                          status === "in_progress" ? "inProgress" : 
-                          "completed"] + 1
+          [status === "not_started" ? "notStarted" : 
+           status === "in_progress" ? "inProgress" : 
+           "completed"]: acc[status === "not_started" ? "notStarted" : 
+                         status === "in_progress" ? "inProgress" : 
+                         "completed"] + 1
         };
       }, {
         total: 0,
-        assigned: 0,
         notStarted: 0,
         inProgress: 0,
         completed: 0,
@@ -72,8 +67,8 @@ export function ProgressTracker({ projectId }: ProgressTrackerProps) {
     return (
       <div className="space-y-4">
         <div className="h-2 bg-neutral-200 rounded animate-pulse" />
-        <div className="grid grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
+        <div className="grid grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
             <div key={i} className="h-20 bg-neutral-200 rounded animate-pulse" />
           ))}
         </div>
@@ -96,14 +91,10 @@ export function ProgressTracker({ projectId }: ProgressTrackerProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-purple-50 rounded-lg p-4">
-          <div className="text-2xl font-semibold text-purple-700">{stats.assigned}</div>
-          <div className="text-sm text-purple-600">Assigned</div>
-        </div>
-        <div className="bg-neutral-50 rounded-lg p-4">
-          <div className="text-2xl font-semibold text-neutral-700">{stats.notStarted}</div>
-          <div className="text-sm text-neutral-600">Not Started</div>
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-red-50 rounded-lg p-4">
+          <div className="text-2xl font-semibold text-red-700">{stats.notStarted}</div>
+          <div className="text-sm text-red-600">Not Started</div>
         </div>
         <div className="bg-blue-50 rounded-lg p-4">
           <div className="text-2xl font-semibold text-blue-700">{stats.inProgress}</div>

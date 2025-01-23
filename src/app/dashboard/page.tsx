@@ -18,13 +18,25 @@ interface Project {
   status: string;
 }
 
+interface Task {
+  id: string;
+  name: string;
+  description: string;
+  dueDate: string;
+  createdAt: string;
+  projectId: string;
+  status: string;
+  priority: string;
+  assignedTo: string;
+}
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [metrics, setMetrics] = useState({
-    activeProjects: 0,
-    dueSoonProjects: 0,
+    totalTasks: 0,
+    dueSoonTasks: 0,
   });
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
 
@@ -33,35 +45,44 @@ export default function DashboardPage() {
       if (!user) return;
 
       try {
-        // Query projects where the user is a member
-        const projectsRef = collection(db, 'projects');
-        const q = query(projectsRef, where('members', 'array-contains', user.uid));
+        // Query tasks assigned to the user
+        const tasksRef = collection(db, 'tasks');
+        const q = query(tasksRef, where('assignedTo', '==', user.uid));
         const querySnapshot = await getDocs(q);
         
-        const projects = querySnapshot.docs.map(doc => ({
+        const tasks = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
-        })) as Project[];
+        })) as Task[];
 
         // Calculate metrics
         const now = new Date();
         const sevenDaysFromNow = new Date();
         sevenDaysFromNow.setDate(now.getDate() + 7);
 
-        const activeProjects = projects.filter(p => p.status === 'active').length;
-        const dueSoonProjects = projects.filter(p => {
-          const dueDate = new Date(p.dueDate);
+        const totalTasks = tasks.length;
+        const dueSoonTasks = tasks.filter(task => {
+          const dueDate = new Date(task.dueDate);
           return dueDate <= sevenDaysFromNow && dueDate >= now;
         }).length;
 
-        // Get 3 most recent projects
+        // Get recent projects (keeping this for the projects section)
+        const projectsRef = collection(db, 'projects');
+        const projectsQuery = query(projectsRef, where('members', 'array-contains', user.uid));
+        const projectsSnapshot = await getDocs(projectsQuery);
+        
+        const projects = projectsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })) as Project[];
+
         const sortedProjects = [...projects].sort((a, b) => 
           new Date(b.dueDate).getTime() - new Date(a.dueDate).getTime()
         ).slice(0, 3);
 
         setMetrics({
-          activeProjects,
-          dueSoonProjects,
+          totalTasks,
+          dueSoonTasks,
         });
         setRecentProjects(sortedProjects);
       } catch (error) {
@@ -83,7 +104,7 @@ export default function DashboardPage() {
               Welcome back, {user?.displayName?.split(' ')[0] || 'there'}!
             </h1>
             <p className="text-neutral-600 mt-2">
-              Here's an overview of your projects
+              Here's an overview of your tasks and projects
             </p>
           </div>
           <button
@@ -98,23 +119,25 @@ export default function DashboardPage() {
         {/* Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatCard
-            icon={<IconFolder className="w-5 h-5" />}
-            label="Active Projects"
-            value={loading ? "-" : metrics.activeProjects.toString()}
-            description="Currently in progress"
-            onClick={() => router.push("/dashboard/projects")}
+            icon={<IconCheckbox className="w-5 h-5" />}
+            label="Total Tasks"
+            value={loading ? "-" : metrics.totalTasks.toString()}
+            description="Tasks assigned to you"
+            onClick={() => router.push("/dashboard/tasks")}
           />
           <StatCard
             icon={<IconClock className="w-5 h-5" />}
-            label="Due Soon"
-            value={loading ? "-" : metrics.dueSoonProjects.toString()}
+            label="Tasks Due Soon"
+            value={loading ? "-" : metrics.dueSoonTasks.toString()}
             description="Due within 7 days"
+            onClick={() => router.push("/dashboard/tasks")}
           />
           <StatCard
-            icon={<IconCheckbox className="w-5 h-5" />}
-            label="Total Projects"
+            icon={<IconFolder className="w-5 h-5" />}
+            label="Active Projects"
             value={loading ? "-" : recentProjects.length.toString()}
-            description="Across all courses"
+            description="Currently in progress"
+            onClick={() => router.push("/dashboard/projects")}
           />
         </div>
 

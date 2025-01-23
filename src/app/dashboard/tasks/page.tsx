@@ -186,8 +186,6 @@ export default function TasksPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "assigned":
-        return "bg-purple-100 text-purple-800";
       case "not_started":
         return "bg-neutral-100 text-neutral-800";
       case "in_progress":
@@ -201,8 +199,6 @@ export default function TasksPage() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case "assigned":
-        return "Assigned";
       case "not_started":
         return "Not Started";
       case "in_progress":
@@ -210,7 +206,33 @@ export default function TasksPage() {
       case "completed":
         return "Completed";
       default:
-        return status;
+        return "Not Started";
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "not_started":
+        return "⭕️";
+      case "in_progress":
+        return "🔄";
+      case "completed":
+        return "✅";
+      default:
+        return "⭕️";
+    }
+  };
+
+  const getNextStatus = (currentStatus: string): Task["status"] => {
+    switch (currentStatus) {
+      case "not_started":
+        return "in_progress";
+      case "in_progress":
+        return "completed";
+      case "completed":
+        return "not_started";
+      default:
+        return "not_started";
     }
   };
 
@@ -236,7 +258,6 @@ export default function TasksPage() {
               className="px-3 py-1 text-sm rounded-md border border-input bg-background text-neutral-800"
             >
               <option value="all">All Tasks</option>
-              <option value="assigned">Assigned</option>
               <option value="not_started">Not Started</option>
               <option value="in_progress">In Progress</option>
               <option value="completed">Completed</option>
@@ -267,18 +288,15 @@ export default function TasksPage() {
                   <div className="p-4">
                     <div className="flex items-center justify-between mb-4">
                       {task.assignedTo === user?.uid ? (
-                        <select
-                          value={task.status}
-                          onChange={(e) => updateTaskStatus(task.id, e.target.value as Task["status"])}
-                          className={`px-3 py-1.5 text-sm rounded-md border-2 font-medium transition-colors ${getStatusColor(task.status)}`}
+                        <button
+                          onClick={() => updateTaskStatus(task.id, getNextStatus(task.status))}
+                          className={`px-3 py-1.5 text-sm rounded-md border-2 font-medium transition-all hover:opacity-80 active:scale-95 ${getStatusColor(task.status)}`}
                         >
-                          <option value="not_started">⭕️ Not Started</option>
-                          <option value="in_progress">🔄 In Progress</option>
-                          <option value="completed">✅ Completed</option>
-                        </select>
+                          {getStatusIcon(task.status)} {getStatusLabel(task.status)}
+                        </button>
                       ) : (
                         <span className={`px-3 py-1.5 text-sm rounded-md border-2 font-medium ${getStatusColor(task.status)}`}>
-                          {getStatusLabel(task.status)}
+                          {getStatusIcon(task.status)} {getStatusLabel(task.status)}
                         </span>
                       )}
                       <span className="text-sm text-neutral-600">
