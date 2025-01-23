@@ -296,7 +296,7 @@ export default function TasksPage() {
                         </span>
                       </div>
                       <button
-                        onClick={() => router.push(`/dashboard/projects/${task.project.id}`)}
+                        onClick={() => router.push(`/dashboard/projects/${task.projectId}`)}
                         className="text-sm text-neutral-500 hover:text-neutral-800"
                       >
                         View Project →
