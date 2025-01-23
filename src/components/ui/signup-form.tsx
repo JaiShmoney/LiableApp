@@ -6,8 +6,17 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { IconBrandGoogle } from "@tabler/icons-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { setDoc, doc } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase/firebase";
+import { signInWithGoogle } from "@/lib/firebase/firebaseUtils";
+import { collection, query, where, getDocs, updateDoc, arrayUnion } from "firebase/firestore";
 
 export function SignupForm() {
+  const router = useRouter();
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [passwordError, setPasswordError] = useState("");
   const [formData, setFormData] = useState({
     firstname: "",
@@ -32,12 +41,107 @@ export function SignupForm() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (passwordError) {
-      return;
+    setLoading(true);
+    setError("");
+
+    try {
+      if (formData.password !== formData.confirmPassword) {
+        setError("Passwords do not match");
+        return;
+      }
+
+      // Create user account
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        formData.email,
+        formData.password
+      );
+
+      // Update user profile with display name
+      await updateProfile(userCredential.user, {
+        displayName: `${formData.firstname} ${formData.lastname}`
+      });
+
+      // Create user profile in Firestore
+      await setDoc(doc(db, 'users', userCredential.user.uid), {
+        firstName: formData.firstname,
+        lastName: formData.lastname,
+        email: formData.email,
+        createdAt: new Date().toISOString(),
+      });
+
+      console.log("User created successfully:", userCredential.user.uid);
+
+      // Check for pending invite
+      const pendingInvite = localStorage.getItem('pendingInvite');
+      if (pendingInvite) {
+        console.log("Found pending invite after signup:", pendingInvite);
+        localStorage.removeItem('pendingInvite');
+        
+        // Add user to project members
+        const projectsRef = collection(db, 'projects');
+        const q = query(projectsRef, where('inviteCode', '==', pendingInvite));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          const projectDoc = querySnapshot.docs[0];
+          await updateDoc(doc(db, 'projects', projectDoc.id), {
+            members: arrayUnion(userCredential.user.uid)
+          });
+          
+          console.log("Added user to project members");
+          router.push(`/dashboard/projects/${projectDoc.id}`);
+          return;
+        }
+      }
+
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error('Error signing up:', error);
+      setError(error.message || 'Failed to create account');
+    } finally {
+      setLoading(false);
     }
-    console.log("Form submitted", formData);
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const user = await signInWithGoogle();
+      
+      // Check for pending invite
+      const pendingInvite = localStorage.getItem('pendingInvite');
+      if (pendingInvite) {
+        console.log("Found pending invite after Google signup:", pendingInvite);
+        localStorage.removeItem('pendingInvite');
+        
+        // Add user to project members
+        const projectsRef = collection(db, 'projects');
+        const q = query(projectsRef, where('inviteCode', '==', pendingInvite));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          const projectDoc = querySnapshot.docs[0];
+          await updateDoc(doc(db, 'projects', projectDoc.id), {
+            members: arrayUnion(user.uid)
+          });
+          
+          console.log("Added user to project members");
+          router.push(`/dashboard/projects/${projectDoc.id}`);
+          return;
+        }
+      }
+
+      router.push("/dashboard");
+    } catch (err) {
+      console.error("Google signin error:", err);
+      setError("Failed to sign in with Google. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -48,6 +152,10 @@ export function SignupForm() {
       <p className="text-neutral-600 text-sm max-w-sm mt-2">
         Sign up to start managing your projects efficiently
       </p>
+
+      {error && (
+        <p className="text-red-500 text-sm mt-4">{error}</p>
+      )}
 
       <form className="my-8" onSubmit={handleSubmit}>
         <div className="flex flex-col md:flex-row space-y-2 md:space-y-0 md:space-x-2 mb-4">
@@ -61,6 +169,7 @@ export function SignupForm() {
               value={formData.firstname}
               onChange={handleChange}
               required
+              disabled={loading}
             />
           </LabelInputContainer>
           <LabelInputContainer>
@@ -73,6 +182,7 @@ export function SignupForm() {
               value={formData.lastname}
               onChange={handleChange}
               required
+              disabled={loading}
             />
           </LabelInputContainer>
         </div>
@@ -86,6 +196,7 @@ export function SignupForm() {
             value={formData.email}
             onChange={handleChange}
             required
+            disabled={loading}
           />
         </LabelInputContainer>
         <LabelInputContainer className="mb-4">
@@ -98,6 +209,7 @@ export function SignupForm() {
             value={formData.password}
             onChange={handleChange}
             required
+            disabled={loading}
           />
         </LabelInputContainer>
         <LabelInputContainer className="mb-8">
@@ -110,6 +222,7 @@ export function SignupForm() {
             value={formData.confirmPassword}
             onChange={handleChange}
             required
+            disabled={loading}
           />
           {passwordError && (
             <p className="text-red-500 text-sm mt-1">{passwordError}</p>
@@ -117,11 +230,11 @@ export function SignupForm() {
         </LabelInputContainer>
 
         <button
-          className="bg-black relative group/btn w-full text-white rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset]"
+          className="bg-black relative group/btn w-full text-white rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] disabled:opacity-50"
           type="submit"
-          disabled={!!passwordError}
+          disabled={loading || !!passwordError}
         >
-          Sign up &rarr;
+          {loading ? "Creating account..." : "Sign up →"}
           <BottomGradient />
         </button>
 
@@ -129,12 +242,14 @@ export function SignupForm() {
 
         <div className="flex flex-col space-y-4">
           <button
-            className="relative group/btn flex space-x-2 items-center justify-center px-4 w-full text-black rounded-md h-10 font-medium shadow-input bg-gray-50"
+            className="relative group/btn flex space-x-2 items-center justify-center px-4 w-full text-black rounded-md h-10 font-medium shadow-input bg-gray-50 disabled:opacity-50"
             type="button"
+            onClick={handleGoogleSignIn}
+            disabled={loading}
           >
             <IconBrandGoogle className="h-4 w-4 text-neutral-800" />
             <span className="text-neutral-700 text-sm">
-              Continue with Google
+              {loading ? "Signing in..." : "Continue with Google"}
             </span>
             <BottomGradient />
           </button>

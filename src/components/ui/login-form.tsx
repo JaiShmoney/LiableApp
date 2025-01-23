@@ -6,8 +6,15 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { IconBrandGoogle } from "@tabler/icons-react";
 import Link from "next/link";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebase/firebase";
+import { signInWithGoogle } from "@/lib/firebase/firebaseUtils";
+import { useRouter } from "next/navigation";
 
 export function LoginForm() {
+  const router = useRouter();
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -18,9 +25,54 @@ export function LoginForm() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Form submitted", formData);
+    setLoading(true);
+    setError("");
+
+    try {
+      await signInWithEmailAndPassword(auth, formData.email, formData.password);
+      
+      // Check for pending invite
+      const pendingInvite = localStorage.getItem('pendingInvite');
+      if (pendingInvite) {
+        console.log("Found pending invite after login:", pendingInvite);
+        localStorage.removeItem('pendingInvite');
+        router.push(`/invite/${pendingInvite}`);
+        return;
+      }
+
+      router.push('/dashboard');
+    } catch (error: any) {
+      console.error('Error signing in:', error);
+      setError(error.message || 'Failed to sign in');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      await signInWithGoogle();
+      
+      // Check for pending invite
+      const pendingInvite = localStorage.getItem('pendingInvite');
+      if (pendingInvite) {
+        console.log("Found pending invite after Google sign-in:", pendingInvite);
+        localStorage.removeItem('pendingInvite');
+        router.push(`/invite/${pendingInvite}`);
+        return;
+      }
+
+      router.push("/dashboard");
+    } catch (err) {
+      console.error("Google signin error:", err);
+      setError("Failed to sign in with Google. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -31,6 +83,10 @@ export function LoginForm() {
       <p className="text-neutral-600 text-sm max-w-sm mt-2">
         Sign in to continue managing your projects
       </p>
+
+      {error && (
+        <p className="text-red-500 text-sm mt-4">{error}</p>
+      )}
 
       <form className="my-8" onSubmit={handleSubmit}>
         <LabelInputContainer className="mb-4">
@@ -43,6 +99,7 @@ export function LoginForm() {
             value={formData.email}
             onChange={handleChange}
             required
+            disabled={loading}
           />
         </LabelInputContainer>
         <LabelInputContainer className="mb-8">
@@ -55,6 +112,7 @@ export function LoginForm() {
             value={formData.password}
             onChange={handleChange}
             required
+            disabled={loading}
           />
           <div className="flex justify-end">
             <Link 
@@ -67,10 +125,11 @@ export function LoginForm() {
         </LabelInputContainer>
 
         <button
-          className="bg-black relative group/btn w-full text-white rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset]"
+          className="bg-black relative group/btn w-full text-white rounded-md h-10 font-medium shadow-[0px_1px_0px_0px_#ffffff40_inset,0px_-1px_0px_0px_#ffffff40_inset] disabled:opacity-50"
           type="submit"
+          disabled={loading}
         >
-          Sign in &rarr;
+          {loading ? "Signing in..." : "Sign in →"}
           <BottomGradient />
         </button>
 
@@ -78,12 +137,14 @@ export function LoginForm() {
 
         <div className="flex flex-col space-y-4">
           <button
-            className="relative group/btn flex space-x-2 items-center justify-center px-4 w-full text-black rounded-md h-10 font-medium shadow-input bg-gray-50"
+            className="relative group/btn flex space-x-2 items-center justify-center px-4 w-full text-black rounded-md h-10 font-medium shadow-input bg-gray-50 disabled:opacity-50"
             type="button"
+            onClick={handleGoogleSignIn}
+            disabled={loading}
           >
             <IconBrandGoogle className="h-4 w-4 text-neutral-800" />
             <span className="text-neutral-700 text-sm">
-              Continue with Google
+              {loading ? "Signing in..." : "Continue with Google"}
             </span>
             <BottomGradient />
           </button>

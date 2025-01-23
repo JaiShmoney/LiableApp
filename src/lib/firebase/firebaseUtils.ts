@@ -28,6 +28,15 @@ export const signInWithGoogle = async () => {
   }
 };
 
+export async function signOutUser() {
+  try {
+    await signOut(auth);
+  } catch (error) {
+    console.error('Error signing out:', error);
+    throw error;
+  }
+}
+
 // Firestore functions
 export const addDocument = (collectionName: string, data: any) =>
   addDoc(collection(db, collectionName), data);
