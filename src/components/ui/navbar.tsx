@@ -15,13 +15,12 @@ export function Navbar() {
         </Link>
         
         <div className="flex gap-4">
-          <Button variant="ghost" asChild className="text-black">
+          <Button asChild className="bg-black text-white hover:bg-black/90">
             <Link href="/login">Log in</Link>
           </Button>
-          <Button asChild className="text-black">
+          <Button asChild className="bg-black text-white hover:bg-black/90">
             <Link href="/signup">Sign up</Link>
           </Button>
-         
         </div>
       </div>
     </nav>

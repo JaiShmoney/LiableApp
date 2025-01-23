@@ -31,7 +31,13 @@ export default function Home() {
         <Hero
           title="Projects That Work."
           subtitle="Designed for students, built for success. Organize, collaborate, and deliver."
-          actions={actions}
+          actions={[
+            {
+              label: "Get Started",
+              href: "/signup",
+              variant: "default"
+            }
+          ]}
           titleClassName="text-5xl md:text-6xl font-extrabold text-black"
           subtitleClassName="text-lg md:text-xl max-w-[600px] text-gray-600"
           actionsClassName="mt-8"
